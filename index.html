@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Zahra Seyd</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body, * {
+      cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'%3E%3Cpolygon points='0,17 9,1 18,17' fill='%23111'/%3E%3Cpolygon points='6.5,5 9,1 11.5,5' fill='white'/%3E%3C/svg%3E") 9 1, auto;
+    }
+
+    a, button, [role="button"] {
+      cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'%3E%3Cpolygon points='0,17 9,1 18,17' fill='%23c0392b'/%3E%3Cpolygon points='6.5,5 9,1 11.5,5' fill='white'/%3E%3C/svg%3E") 9 1, pointer;
+    }
+
+    body {
+      background: #ffffff;
+      color: #000;
+      font-family: ui-monospace, 'Courier New', Courier, monospace;
+      font-size: 1.05rem;
+      font-weight: 500;
+      line-height: 1.75;
+      padding: 72px 48px 96px;
+    }
+
+
+    .page {
+      max-width: 760px;
+      margin: 0 auto;
+    }
+
+    /* ── HEADER ── */
+    .name {
+      font-family: 'Outfit', ui-sans-serif, sans-serif;
+      font-size: 2rem;
+      font-weight: bold;
+      letter-spacing: -0.02em;
+      line-height: 1.05;
+      margin-bottom: 28px;
+      color: #111;
+    }
+
+    .intro {
+      color: #000;
+      margin-bottom: 10px;
+    }
+
+    .intro a {
+      color: #555;
+      text-decoration: underline;
+      text-decoration-color: #bbb;
+      text-underline-offset: 2px;
+    }
+
+    .intro a:hover { text-decoration-color: #777; }
+
+    .tagline {
+      color: #aaa;
+      font-size: 0.92rem;
+      margin-bottom: 64px;
+    }
+
+    /* ── ACCORDION ── */
+    .sections { border-top: 1px solid #ddd; }
+
+    .acc-item { border-bottom: 1px solid #ddd; }
+
+    .acc-trigger {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      width: 100%;
+      padding: 22px 0;
+      background: none;
+      border: none;
+      cursor: pointer;
+      text-align: left;
+      font-family: inherit;
+    }
+
+    .acc-arrow {
+      font-size: 1.1rem;
+      font-weight: 300;
+      color: #bbb;
+      transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s;
+      flex-shrink: 0;
+      display: inline-block;
+      line-height: 1;
+      width: 16px;
+      text-align: center;
+    }
+
+    .acc-item.open .acc-arrow {
+      transform: rotate(45deg);
+      color: #888;
+    }
+
+.acc-label {
+      font-size: 0.85rem;
+      font-weight: bold;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #000;
+    }
+
+    .acc-body {
+      display: none;
+      padding-bottom: 32px;
+    }
+
+    .acc-item.open .acc-body { display: block; }
+
+    /* ── CAREER ── */
+    .c-item {
+      padding: 20px 0;
+      border-bottom: 1px solid #eee;
+    }
+
+    .c-item:first-child { padding-top: 0; }
+    .c-item:last-child  { border-bottom: none; padding-bottom: 0; }
+
+    .c-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .c-role {
+      font-weight: bold;
+      color: #111;
+      font-size: 1.05rem;
+    }
+
+    .c-period {
+      font-size: 0.9rem;
+      color: #aaa;
+      white-space: nowrap;
+    }
+
+    .c-company {
+      font-size: 0.92rem;
+      color: #888;
+      margin-bottom: 8px;
+    }
+
+    .c-desc {
+      font-size: 0.97rem;
+      color: #000;
+      line-height: 1.7;
+    }
+
+    /* ── PROJECTS ── */
+    .p-item {
+      padding: 16px 0;
+      border-bottom: 1px solid #eee;
+    }
+
+    .p-item:first-child { padding-top: 0; }
+    .p-item:last-child  { border-bottom: none; padding-bottom: 0; }
+
+    .p-name { font-weight: bold; color: #111; margin-bottom: 12px; font-size: 1rem; }
+
+    .p-block { margin-bottom: 10px; }
+    .p-block:last-child { margin-bottom: 0; }
+    .p-tag { font-size: 0.78rem; font-weight: bold; letter-spacing: 0.06em; text-transform: uppercase; color: #555; margin-bottom: 4px; }
+    .p-text { font-size: 0.97rem; color: #000; }
+
+    /* ── MOUNTAINS ── */
+    .mtn-item {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 16px;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid #eee;
+      font-size: 0.97rem;
+    }
+
+    .mtn-icon {
+      display: inline-flex;
+      align-items: center;
+      margin-left: 6px;
+      opacity: 0.5;
+      vertical-align: middle;
+    }
+
+    .mtn-icon svg {
+      width: 11px; height: 11px;
+      stroke: currentColor; fill: none;
+      stroke-width: 1.8;
+      stroke-linecap: round; stroke-linejoin: round;
+    }
+
+    .mtn-item:first-child { padding-top: 0; }
+    .mtn-item:last-child  { border-bottom: none; }
+
+    .mtn-name { color: #000; }
+    .mtn-stat { color: #888; text-align: right; }
+    .mtn-year { color: #888; text-align: right; }
+    .mtn-item.upcoming .mtn-name { font-style: italic; color: #555; }
+    .mtn-item.upcoming .mtn-year { color: #888; }
+
+    /* ── HUMAN / RUNNING ── */
+    .h-item {
+      padding: 10px 0;
+      border-bottom: 1px solid #eee;
+      font-size: 0.97rem;
+      color: #111;
+    }
+
+    .h-item:first-child { padding-top: 0; }
+    .h-item:last-child  { border-bottom: none; }
+
+    /* ── AGE COUNTER ── */
+    .age-counter {
+      display: flex;
+      gap: 0;
+      margin: 1.2rem 0;
+      flex-wrap: wrap;
+    }
+
+    .age-unit {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0.6rem 1rem;
+      border: 1px solid #e0ddd8;
+      margin-right: -1px;
+      margin-bottom: -1px;
+      min-width: 70px;
+    }
+
+    .age-num {
+      font-size: 1.3rem;
+      font-weight: 600;
+      color: #111;
+      line-height: 1;
+      min-width: 2ch;
+      text-align: center;
+    }
+
+    .age-label {
+      font-size: 0.6rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #bbb;
+      margin-top: 4px;
+    }
+
+    .coord {
+      font-size: 0.88rem;
+      color: #999;
+      letter-spacing: 0.02em;
+      text-decoration: underline;
+      text-decoration-color: #ddd;
+      text-underline-offset: 2px;
+      transition: color 0.15s;
+    }
+
+    .coord:hover { color: #555; text-decoration-color: #999; }
+
+    #age-decimal {
+      display: inline-block;
+      background: #111;
+      color: #fff;
+      font-family: ui-monospace, 'Courier New', monospace;
+      font-size: 0.88rem;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      padding: 2px 10px;
+      border-radius: 4px;
+      vertical-align: middle;
+    }
+
+    /* ── SUBSECTIONS ── */
+    .sub-section { margin-bottom: 20px; }
+    .sub-section:last-child { margin-bottom: 0; }
+
+    .sub-label {
+      font-size: 0.78rem;
+      font-weight: bold;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #bbb;
+      margin-bottom: 10px;
+    }
+
+    /* ── FOOTER ── */
+    @keyframes flower-throw {
+      0%   { transform: translate(0, 0) rotate(0deg) scale(1); opacity: 1; }
+      100% { transform: translate(var(--tx), var(--ty)) rotate(var(--rot)) scale(0.5); opacity: 0; }
+    }
+
+    .journey-wrap { position: fixed; bottom: 0; left: 0; right: 0; z-index: 100; background: #fff; border-top: 1px solid #eee; }
+    .journey-footer { display: flex; align-items: center; justify-content: flex-end; padding: 10px 24px 6px; }
+    .journey-footer-links { display: flex; gap: 20px; }
+    .journey-footer-links a { font-size: 0.88rem; font-weight: 500; color: #555; text-decoration: none; transition: color 0.15s; }
+    .journey-footer-links a:hover { color: #111; }
+    #journey-canvas { display: block; width: 100%; height: 145px; }
+    body { padding-bottom: 193px; }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HEADER -->
+  <h1 class="name">Zahra Seyd</h1>
+
+  <p class="intro">
+    Product manager and computer vision engineer, owning AI and tech products end-to-end.
+    Co-founder of <a href="https://correl8.ai" target="_blank">correl8.ai</a>, product observability platform for AI agents.
+    Previously AI PM at Deepomatic (acquired by IQGeo) and CTO at AI.Nature (Inria).
+  </p>
+  <p class="tagline">Explore my work, side projects, and the parts of me that don't fit on a resume.</p>
+
+  <!-- SECTIONS -->
+  <div class="sections">
+
+    <!-- ABOUT -->
+    <div class="acc-item">
+      <button class="acc-trigger">
+        <span class="acc-arrow">+</span>
+        <span class="acc-label">About</span>
+      </button>
+      <div class="acc-body">
+        <p style="margin-bottom:1rem;">Hey, I'm Zahra, also known as Zar. I was born in Iran <a class="coord" href="https://www.google.com/maps/place/Karaj,+Alborz+Province,+Iran/@35.8278279,50.8679888,12z/data=!3m1!4b1!4m6!3m5!1s0x3f8dbf95ef45f011:0x722a04e54eba9bcd!8m2!3d35.8438581!4d50.9714995!16zL20vMDN3NWN2?entry=ttu&g_ep=EgoyMDI2MDkwMi4wIKXMDSoASAFQAw%3D%3D" target="_blank" rel="noopener">35.8355° N, 50.9990° E</a> and I'm <span id="age-decimal">—</span> years old.</p>
+<p style="margin-bottom:1rem;">For the past 6 years I've been deep in the Paris startup ecosystem, building AI products alongside some of the best teams in Europe, first as an engineer, then as a product manager, and now as a founder. I started working on <a href="https://correl8.ai" target="_blank">Correl8</a> because I got obsessed with that one question: what happens when AI agents become the new layer between users and products, and how that changes everything, not just the tech stack, but the UX, the analytics, the way teams make decisions.</p>
+
+      </div>
+    </div>
+
+    <!-- CAREER -->
+    <div class="acc-item">
+      <button class="acc-trigger">
+        <span class="acc-arrow">+</span>
+        <span class="acc-label">Career</span>
+      </button>
+      <div class="acc-body">
+        <div class="c-item">
+          <div class="c-top">
+            <span class="c-role">Co-Founder & CEO</span>
+            <span class="c-period">Jul 2025 – Present</span>
+          </div>
+          <div class="c-company">Correl8 AI · Paris</div>
+          <div class="c-desc">We're building the product analytics platform for teams shipping agentic products. We designed an MCP integration so agents report observations directly without exporting private conversations, and built a pipeline that clusters those observations into prioritized product, service, and agent issues with evidence and recommended actions. Piloted across 4+ use cases in consumer products.</div>
+        </div>
+        <div class="c-item">
+          <div class="c-top">
+            <span class="c-role">AI Product Manager</span>
+            <span class="c-period">May 2022 – Dec 2024</span>
+          </div>
+          <div class="c-company">Deepomatic · acquired by IQGeo · Paris</div>
+          <div class="c-desc">PM'd Deepomatic Studio end-to-end: a platform covering annotation, model training, deployment, evaluation, and continuous improvement. Also built the user-facing mobile app with my team, bringing computer vision models directly into field workflows.</div>
+        </div>
+        <div class="c-item">
+          <div class="c-top">
+            <span class="c-role">CPTO</span>
+            <span class="c-period">Dec 2020 – Apr 2022</span>
+          </div>
+          <div class="c-company">AI.Nature · Inria · Paris</div>
+          <div class="c-desc">Led engineering and product for a cross-functional team of engineers and biologists, taking computer vision models from research to a deployed product for biological applications.</div>
+        </div>
+        <div class="c-item">
+          <div class="c-top">
+            <span class="c-role">Computer Vision Engineer</span>
+            <span class="c-period">Jan 2020 – Nov 2020</span>
+          </div>
+          <div class="c-company">Vicomtech · San Sebastián</div>
+          <div class="c-desc">R&D on unsupervised and semi-supervised deep learning for noise reduction in medical imaging. Applied to fetoscopic laser photocoagulation surgery: denoised video frames and auto-detected vessels to assist surgeons in real time.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SIDE PROJECTS -->
+    <div class="acc-item">
+      <button class="acc-trigger">
+        <span class="acc-arrow">+</span>
+        <span class="acc-label">Side Projects</span>
+      </button>
+      <div class="acc-body">
+        <div class="p-item">
+          <div class="p-name"><a href="https://www.rugswise.com/" target="_blank">Rugswise ↗</a></div>
+          <div class="p-block">
+            <div class="p-tag">Problem:</div>
+            <div class="p-text">Iranian handmade rugs are one of the most intricate crafts in the world, and where a rug comes from determines most of its value. But the knowledge to identify provenance, weaving techniques, knot density, regional patterns, has always lived in the heads of a few experts, scattered and inaccessible. As an Iranian, I grew up around rugs and wanted to preserve both the craft and the knowledge around it.</div>
+          </div>
+          <div class="p-block">
+            <div class="p-tag">Solution:</div>
+            <div class="p-text">A provenance identification tool backed by a dataset I assembled of rugs from regions across Iran, annotated with weaving characteristics, material composition, and regional markers. The model takes an image and structured inputs and predicts origin, helping buyers, collectors, and inheritors understand what they actually have.</div>
+          </div>
+        </div>
+        <div class="p-item">
+          <div class="p-name">Joinifyouwant</div>
+          <div class="p-block">
+            <div class="p-tag">Problem:</div>
+            <div class="p-text">Always out of sync with friends for activities. We'd want to play badminton and need four people, but pinging everyone last-minute was painful enough that we'd just end up playing alone. And at some point we realised we didn't have time to see all our friends separately anymore.</div>
+          </div>
+          <div class="p-block">
+            <div class="p-tag">Solution:</div>
+            <div class="p-text">An app where anyone in your circle can post a last-minute activity and leave it open for others to join. You see what's happening, you show up if you want. It solved the team-forming problem and turned activities into a way to actually see friends, without scheduling a separate dinner two weeks out.</div>
+          </div>
+        </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MOUNTAINS -->
+    <div class="acc-item">
+      <button class="acc-trigger">
+        <span class="acc-arrow">+</span>
+        <span class="acc-label">Mountains</span>
+      </button>
+      <div class="acc-body">
+        <p style="margin-bottom:1.4rem;">Mountains I've hiked or climbed.</p>
+        <div class="mtn-item">
+          <span class="mtn-year">2025</span>
+          <span class="mtn-name">Tour du Mont Blanc <span class="mtn-icon"><svg viewBox="0 0 24 24"><path d="M3 17 Q7 11 12 13 Q15 9 21 17"/></svg></span></span>
+          <span class="mtn-stat">170 km</span>
+        </div>
+        <div class="mtn-item">
+          <span class="mtn-year">2025</span>
+          <span class="mtn-name">Piton des Neiges <span class="mtn-icon"><svg viewBox="0 0 24 24"><polyline points="3 20 12 4 21 20"/></svg></span></span>
+          <span class="mtn-stat">3,070 m</span>
+        </div>
+        <div class="mtn-item">
+          <span class="mtn-year">2026</span>
+          <span class="mtn-name">Mont de Grange <span class="mtn-icon"><svg viewBox="0 0 24 24"><polyline points="3 20 12 4 21 20"/></svg></span></span>
+          <span class="mtn-stat">2,432 m</span>
+        </div>
+        <div class="mtn-item">
+          <span class="mtn-year">2026</span>
+          <span class="mtn-name">Le Linleu <span class="mtn-icon"><svg viewBox="0 0 24 24"><polyline points="3 20 12 4 21 20"/></svg></span></span>
+          <span class="mtn-stat">1,711 m</span>
+        </div>
+        <div class="mtn-item upcoming">
+          <span class="mtn-year">2027</span>
+          <span class="mtn-name">Damavand <span class="mtn-icon"><svg viewBox="0 0 24 24"><polyline points="3 20 12 4 21 20"/></svg></span></span>
+          <span class="mtn-stat">5,610 m · coming</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- JOURNEY + FOOTER -->
+  <div class="journey-wrap">
+    <div class="journey-footer">
+      <div class="journey-footer-links">
+        <a href="https://linkedin.com/in/" target="_blank">↗ LinkedIn</a>
+        <a href="mailto:szahra.seyd@gmail.com">↗ Email</a>
+        <a href="https://github.com/szseyd" target="_blank">↗ GitHub</a>
+      </div>
+    </div>
+    <canvas id="journey-canvas"></canvas>
+  </div>
+
+</div>
+
+<script>
+  // ── AGE COUNTER ──
+  (function() {
+    const birth = new Date('1995-08-31T00:00:00');
+    const YEAR_MS = 365.25 * 24 * 60 * 60 * 1000;
+    function update() {
+      const age = (Date.now() - birth) / YEAR_MS;
+      document.getElementById('age-decimal').textContent = age.toFixed(7);
+    }
+    update();
+    setInterval(update, 100);
+  })();
+
+  // ── ACCORDION ──
+  document.querySelectorAll('.acc-trigger').forEach(btn => {
+    btn.addEventListener('click', () => btn.closest('.acc-item').classList.toggle('open'));
+  });
+
+  // ── JOURNEY ──
+  (function() {
+    const canvas = document.getElementById('journey-canvas');
+    const ctx    = canvas.getContext('2d');
+    let W, H, GY, terrain;
+
+    const C = '#535353';
+    const TOTAL_CLICKS   = 70;
+    const VICTORY_CLICKS = 3;
+
+    const MTN_DEFS = [
+      { mw: 36, mh: 55, text: 'you did it! 💪',     descent: 'parachute' },
+      { mw: 54, mh: 68, text: 'yodel-ay-ee-oo! 🏔', descent: 'ski'       },
+      { mw: 42, mh: 52, text: 'one more peak 🎉',    descent: 'normal'    },
+    ];
+
+    function rebuild() {
+      W = canvas.offsetWidth; H = canvas.offsetHeight;
+      canvas.width = W; canvas.height = H;
+      GY = H - 22;
+
+      const spacing = W / (MTN_DEFS.length + 1);
+      const mtns = MTN_DEFS.map((d, i) => ({ ...d, cx: spacing * (i + 1) }));
+
+      const segs = [];
+      let prev = { x: 42, y: GY };
+      for (const m of mtns) {
+        const baseL = { x: m.cx - m.mw, y: GY };
+        const peak  = { x: m.cx,        y: GY - m.mh };
+        const baseR = { x: m.cx + m.mw, y: GY };
+        if (baseL.x > prev.x + 2)
+          segs.push({ from: prev,  to: baseL, angle: 0, type: 'flat' });
+        segs.push({ from: baseL, to: peak,  angle: Math.atan2(-m.mh, m.mw), type: 'climb',   mtn: m });
+        segs.push({ from: peak,  to: peak,  angle: 0,                        type: 'victory', mtn: m, fixed: VICTORY_CLICKS });
+        const dAngle = m.descent === 'parachute' ? 0 : Math.atan2(m.mh, m.mw);
+        segs.push({ from: peak, to: baseR, angle: dAngle, type: 'descend', mtn: m, descentType: m.descent || 'normal' });
+        prev = baseR;
+      }
+      segs.push({ from: prev,                 to: { x: W - 16, y: GY }, angle: 0, type: 'flat' });
+      segs.push({ from: { x: W-16, y: GY },  to: { x: W-16, y: GY },   angle: 0, type: 'end', fixed: Infinity });
+
+      const fixedTotal = segs.filter(s => s.fixed !== undefined && s.fixed !== Infinity)
+                             .reduce((a, s) => a + s.fixed, 0);
+      const varBudget  = TOTAL_CLICKS - fixedTotal;
+      const varSegs    = segs.filter(s => s.fixed === undefined);
+      const lengths    = varSegs.map(s => Math.hypot(s.to.x - s.from.x, s.to.y - s.from.y));
+      const totalLen   = lengths.reduce((a, b) => a + b, 0) || 1;
+
+      let cum = 0, vi = 0;
+      terrain = {
+        mtns,
+        segs: segs.map(s => {
+          if (s.fixed === Infinity) return { ...s, clickStart: cum, clickEnd: Infinity };
+          const c = s.fixed !== undefined
+            ? s.fixed
+            : Math.max(1, Math.round(varBudget * lengths[vi++] / totalLen));
+          const r = { ...s, clickStart: cum, clickEnd: cum + c };
+          cum += c;
+          return r;
+        }),
+      };
+    }
+    rebuild();
+    window.addEventListener('resize', rebuild);
+
+    let clicks = 0, walkUntil = 0, summited = new Set(), descended = new Set();
+
+    function getPos() {
+      if (!terrain) return { x: 18, y: GY, angle: 0, type: 'flat' };
+      const seg = terrain.segs.find(s => clicks < s.clickEnd) || terrain.segs[terrain.segs.length - 1];
+      const span = seg.clickEnd - seg.clickStart;
+      const t = span <= 0 || !isFinite(span) ? 0 : Math.min((clicks - seg.clickStart) / span, 1);
+      return {
+        x: seg.from.x + t * (seg.to.x - seg.from.x),
+        y: seg.from.y + t * (seg.to.y - seg.from.y),
+        angle: seg.type === 'victory' ? 0 : seg.angle,
+        type: seg.type, mtn: seg.mtn, descentType: seg.descentType,
+      };
+    }
+
+    function doSplash(x, y) {
+      const r = canvas.getBoundingClientRect();
+      const cx = r.left + x, cy = r.top + y;
+      for (let i = 0; i < 12; i++) setTimeout(() => {
+        const f = document.createElement('span');
+        f.textContent = '👣';
+        const a = Math.random() * Math.PI * 2, d = 35 + Math.random() * 70;
+        f.style.cssText = `position:fixed;left:${cx}px;top:${cy}px;font-size:${11+Math.random()*9}px;pointer-events:none;user-select:none;z-index:9999;--tx:${Math.cos(a)*d}px;--ty:${Math.sin(a)*d-50}px;--rot:${(Math.random()-.5)*400}deg;animation:flower-throw ${0.6+Math.random()*0.4}s ease-out forwards`;
+        document.body.appendChild(f);
+        f.addEventListener('animationend', () => f.remove());
+      }, i * 45);
+    }
+
+    document.addEventListener('click', () => {
+      if (!terrain) return;
+      const last = terrain.segs[terrain.segs.length - 1];
+      if (clicks >= last.clickStart) return;
+      clicks++;
+      walkUntil = Date.now() + 500;
+      const pos = getPos();
+      if (pos.type === 'victory' && pos.mtn && !summited.has(pos.mtn)) {
+        summited.add(pos.mtn);
+        doSplash(pos.x, pos.y);
+      }
+      terrain.segs.forEach(s => {
+        if (s.type === 'descend' && s.mtn && clicks >= s.clickEnd && !descended.has(s.mtn))
+          descended.add(s.mtn);
+      });
+    });
+
+    function drawCloud(x, y) {
+      ctx.fillStyle = '#d0d0d0';
+      ctx.fillRect(x, y, 22, 5); ctx.fillRect(x+4, y-4, 13, 5); ctx.fillRect(x+7, y-7, 7, 4);
+    }
+
+    function drawMountain(m) {
+      ctx.fillStyle = C;
+      ctx.beginPath();
+      ctx.moveTo(m.cx - m.mw, GY + 1);
+      ctx.lineTo(m.cx,        GY - m.mh);
+      ctx.lineTo(m.cx + m.mw, GY + 1);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.moveTo(m.cx - m.mw * 0.15, GY - m.mh + m.mh * 0.21);
+      ctx.lineTo(m.cx,                GY - m.mh);
+      ctx.lineTo(m.cx + m.mw * 0.15, GY - m.mh + m.mh * 0.21);
+      ctx.closePath(); ctx.fill();
+    }
+
+    function drawFlag(x, y) {
+      ctx.fillStyle = C;
+      ctx.fillRect(x - 1, y - 18, 2, 18);
+      ctx.fillRect(x + 1, y - 18, 10, 7);
+      ctx.fillStyle = '#fff'; ctx.fillRect(x + 2, y - 17, 8, 5);
+    }
+
+    function drawGirlShape(swing, bob, type, ts) {
+      ctx.fillStyle = C; ctx.strokeStyle = C; ctx.lineCap = 'square';
+      ctx.fillRect(-11, -26 + bob, 6, 12);
+      ctx.fillRect(-11, -21 + bob, 6,  2);
+      ctx.fillRect( -3, -26 + bob, 9, 15);
+      ctx.beginPath(); ctx.arc(1,  -31 + bob, 5.5, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(-3, -35 + bob, 3,   0, Math.PI * 2); ctx.fill();
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(-1, -11+bob); ctx.lineTo(-2-swing, 0); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo( 4, -11+bob); ctx.lineTo( 5+swing, 0); ctx.stroke();
+      ctx.fillRect(-5-swing, -2, 7, 3); ctx.fillRect(3+swing, -2, 7, 3);
+      ctx.lineWidth = 2;
+      if (type === 'victory') {
+        ctx.beginPath(); ctx.moveTo(-2,-22+bob); ctx.lineTo(-10,-33+bob); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo( 4,-22+bob); ctx.lineTo( 12,-33+bob); ctx.stroke();
+      } else if (type === 'climb') {
+        ctx.beginPath(); ctx.moveTo(-1,-22+bob); ctx.lineTo(6,-30+bob); ctx.stroke();
+      } else if (type === 'descend') {
+        ctx.beginPath(); ctx.moveTo(0,-22+bob); ctx.lineTo(-8-swing,-15+bob); ctx.stroke();
+      } else if (type === 'end') {
+        const wave = Math.sin(ts/120)*8;
+        ctx.beginPath(); ctx.moveTo(3,-22+bob); ctx.lineTo(11,-30+bob+wave); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-1,-22+bob); ctx.lineTo(-6+swing,-17+bob); ctx.stroke();
+      } else {
+        ctx.beginPath(); ctx.moveTo(0,-22+bob); ctx.lineTo(-6+swing,-17+bob); ctx.stroke();
+      }
+    }
+
+    function drawParachute(ts) {
+      const float = Math.sin(ts / 180) * 6;
+      ctx.fillStyle = C; ctx.strokeStyle = C; ctx.lineCap = 'square';
+      // Canopy
+      ctx.beginPath(); ctx.arc(1, -54+float, 16, Math.PI, 0); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.arc(-5, -57+float, 6, Math.PI, 0); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.arc( 7, -57+float, 6, Math.PI, 0); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = C;
+      // Lines from canopy to shoulders
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(-15, -54+float); ctx.lineTo(-2, -24+float); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(  1, -38+float); ctx.lineTo(  1, -24+float); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo( 17, -54+float); ctx.lineTo(  5, -24+float); ctx.stroke();
+      // Body
+      ctx.fillRect(-3, -26+float, 9, 15);
+      ctx.beginPath(); ctx.arc(1,  -31+float, 5.5, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(-3, -35+float, 3,   0, Math.PI*2); ctx.fill();
+      // Arms spread
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(-2, -22+float); ctx.lineTo(-13, -26+float); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo( 5, -22+float); ctx.lineTo( 16, -26+float); ctx.stroke();
+      // Legs dangling
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(-1, -11+float); ctx.lineTo(-5, 5+float); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo( 4, -11+float); ctx.lineTo( 8, 5+float); ctx.stroke();
+      ctx.fillRect(-8, 3+float, 7, 3); ctx.fillRect(5, 3+float, 7, 3);
+    }
+
+    function drawSkiGirl(bob) {
+      ctx.fillStyle = C; ctx.strokeStyle = C; ctx.lineCap = 'square';
+      // Backpack
+      ctx.fillRect(-11, -22+bob, 6, 10);
+      // Crouched body
+      ctx.fillRect(-3, -22+bob, 9, 13);
+      ctx.beginPath(); ctx.arc(1,  -27+bob, 5.5, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(-3, -31+bob, 3,   0, Math.PI*2); ctx.fill();
+      // Bent legs
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(-2, -9+bob); ctx.lineTo(-4, 0); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo( 5, -9+bob); ctx.lineTo( 7, 0); ctx.stroke();
+      // Two ski planks (one per foot)
+      ctx.lineCap = 'round'; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.moveTo(-22, -1); ctx.lineTo(26, -1); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-22,  5); ctx.lineTo(26,  5); ctx.stroke();
+      ctx.lineCap = 'square';
+      // Arms back aerodynamic
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(-2, -18+bob); ctx.lineTo(-12, -11+bob); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo( 4, -18+bob); ctx.lineTo( 14, -11+bob); ctx.stroke();
+    }
+
+    const clouds  = [0.10, 0.42, 0.78].map(r => ({ xr: r, y: 8 + Math.random() * 14 }));
+    const pebbles = Array.from({length: 30}, (_, i) => ({ xr: (i*0.034+0.005)%1, w: 2+(i%3) }));
+
+    function draw(ts) {
+      if (!W || !terrain) { requestAnimationFrame(draw); return; }
+      ctx.clearRect(0, 0, W, H);
+
+      const pos     = getPos();
+      const walking = Date.now() < walkUntil;
+      const swing   = walking && pos.type !== 'victory' ? Math.sin(ts/130)*5 : 0;
+      const bob     = walking && pos.type === 'flat'    ? Math.abs(Math.sin(ts/130))*1.5 : 0;
+
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
+      clouds.forEach(c => drawCloud(c.xr * W, c.y));
+      terrain.mtns.forEach(m => drawMountain(m));
+
+      ctx.fillStyle = C; ctx.fillRect(0, GY, W, 2);
+      ctx.fillStyle = '#aaa';
+      pebbles.forEach(p => ctx.fillRect(p.xr * W, GY + 4, p.w, 1));
+
+      terrain.mtns.forEach(m => { if (descended.has(m)) drawFlag(m.cx, GY - m.mh); });
+
+      ctx.save();
+      ctx.translate(pos.x, pos.y);
+      ctx.rotate(pos.angle);
+      if (pos.type === 'descend' && pos.descentType === 'parachute') drawParachute(ts);
+      else if (pos.type === 'descend' && pos.descentType === 'ski')   drawSkiGirl(bob);
+      else drawGirlShape(swing, bob, pos.type, ts);
+      ctx.restore();
+
+      if (pos.type === 'victory' && pos.mtn) {
+        ctx.fillStyle = C; ctx.font = 'bold 11px ui-monospace, monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(pos.mtn.text, pos.mtn.cx, GY - pos.mtn.mh - 48);
+        ctx.textAlign = 'left';
+      }
+      if (pos.type === 'end') {
+        ctx.fillStyle = C; ctx.font = '11px ui-monospace, monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('Every mountain top', pos.x - 120, GY-58);
+        ctx.fillText('is within reach,', pos.x - 120, GY-44);
+        ctx.fillText('if you just keep climbing ✨', pos.x - 120, GY-30);
+        ctx.textAlign = 'left';
+      }
+      if (clicks === 0) {
+        ctx.fillStyle = '#aaa'; ctx.font = '11px ui-monospace, monospace';
+        ctx.textAlign = 'left'; ctx.fillText('← click anywhere to hike', 72, GY - 18);
+      }
+
+      requestAnimationFrame(draw);
+    }
+    requestAnimationFrame(draw);
+  })();
+
+
+</script>
+</body>
+</html>
