@@ -304,11 +304,11 @@
     .journey-footer-links { display: flex; gap: 20px; }
     .journey-footer-links a { font-size: 0.88rem; font-weight: 500; color: #555; text-decoration: none; transition: color 0.15s; }
     .journey-footer-links a:hover { color: #111; }
-    #journey-canvas { display: block; width: 100%; height: 145px; }
-    body { padding-bottom: 193px; }
+    #journey-canvas { display: block; width: 100%; height: 165px; }
+    body { padding-bottom: 213px; }
     @media (max-width: 600px) {
-      #journey-canvas { height: 140px; }
-      body { padding-bottom: 188px; }
+      #journey-canvas { height: 155px; }
+      body { padding-bottom: 203px; }
     }
   </style>
 </head>
@@ -490,159 +490,389 @@
   (function() {
     const canvas = document.getElementById('journey-canvas');
     const ctx    = canvas.getContext('2d');
-    let W, H, GY, terrain, girlScale = 1;
+    let W, H, GY, girlScale = 1, CHAR_SX = 140;
 
     const C = '#535353';
-    const TOTAL_CLICKS   = 70;
-    const VICTORY_CLICKS = 3;
 
-    const MTN_DEFS = [
-      { mw: 36, mh: 55, text: 'you did it! 💪',     descent: 'parachute' },
-      { mw: 54, mh: 68, text: 'yodel-ay-ee-oo! 🏔', descent: 'ski'       },
-      { mw: 42, mh: 52, text: 'one more peak 🎉',    descent: 'normal'    },
+    // Jump physics
+    const JUMP_VY = -11, GRAV = 1.1;
+    let jumpVy = 0, jumpY = 0, grounded = true;
+
+    // World state
+    let worldX = 60, cameraX = 0, walkUntil = 0;
+
+    // Input
+    const keys = {};
+    document.addEventListener('keydown', e => {
+      if (e.key === ' ') { e.preventDefault(); if (grounded) triggerJump(); }
+      keys[e.key] = true;
+    });
+    document.addEventListener('keyup',  e => { keys[e.key] = false; });
+    document.addEventListener('click',  () => advanceBy(10));
+
+    const SUMMIT_MSGS   = [
+      'you made it! 💪','yodel-ay-ee-oo! 🏔','one more peak! 🎉',
+      'summit queen 👑','the view! 😍','peak unlocked ✨',
+      'legs of steel 🦵','keep going! 🚀','woohoo! 🙌',
     ];
+    const DESCENT_TYPES = ['parachute','ski','normal','normal','normal'];
 
+    // World data
+    let mountains = [], floatBlocks = [], sheep = [], thornFlowers = [];
+    let summited = new Set(), summitMsg = null;
+    let gameEnded = false, endTime = 0;
+    let endX = 0, weatherStartX = 0;
+    const baaed   = new Set(); // sheep that already baaed
+    const stung   = new Set(); // thorn flowers already triggered
+    let ouchMsg   = null;      // { text, wx, until }
+    let baawMsgs  = [];        // [{ text, wx, until }]
+
+    // Snow particles
+    const snowflakes = [];
+
+    // Clouds — lower so they sit near mountain tops
+    const clouds = Array.from({length:40}, (_,i) => ({
+      wx: 60 + i * 420 + Math.random()*180, y: 18 + Math.random()*28,
+    }));
+
+    // Nature decorations: grass tufts and flowers (sparse)
+    const decor = [];
+    for (let wx = 20; wx < 5000; wx += 90 + Math.random()*70)
+      decor.push({ wx, type: Math.random() < 0.25 ? 'flower' : 'grass' });
+
+    // --- REBUILD ---
     function rebuild() {
       W = canvas.offsetWidth; H = canvas.offsetHeight;
       canvas.width = W; canvas.height = H;
       GY = H - 22;
-
-      const isMobile = W < 600;
-      girlScale = isMobile ? 0.78 : 1;
-      const activeDefs = isMobile
-        ? [
-            { mw: 28, mh: 42, text: 'you did it! 💪',     descent: 'parachute' },
-            { mw: 40, mh: 52, text: 'yodel-ay-ee-oo! 🏔', descent: 'ski'       },
-          ]
-        : MTN_DEFS;
-
-      const spacing = W / (activeDefs.length + 1);
-      const mtns = activeDefs.map((d, i) => ({ ...d, cx: spacing * (i + 1) }));
-
-      const segs = [];
-      let prev = { x: 42, y: GY };
-      for (const m of mtns) {
-        const baseL = { x: m.cx - m.mw, y: GY };
-        const peak  = { x: m.cx,        y: GY - m.mh };
-        const baseR = { x: m.cx + m.mw, y: GY };
-        if (baseL.x > prev.x + 2)
-          segs.push({ from: prev,  to: baseL, angle: 0, type: 'flat' });
-        segs.push({ from: baseL, to: peak,  angle: Math.atan2(-m.mh, m.mw), type: 'climb',   mtn: m });
-        segs.push({ from: peak,  to: peak,  angle: 0,                        type: 'victory', mtn: m, fixed: VICTORY_CLICKS });
-        const dAngle = m.descent === 'parachute' ? 0 : Math.atan2(m.mh, m.mw);
-        segs.push({ from: peak, to: baseR, angle: dAngle, type: 'descend', mtn: m, descentType: m.descent || 'normal' });
-        prev = baseR;
-      }
-      segs.push({ from: prev,                 to: { x: W - 16, y: GY }, angle: 0, type: 'flat' });
-      segs.push({ from: { x: W-16, y: GY },  to: { x: W-16, y: GY },   angle: 0, type: 'end', fixed: Infinity });
-
-      const fixedTotal = segs.filter(s => s.fixed !== undefined && s.fixed !== Infinity)
-                             .reduce((a, s) => a + s.fixed, 0);
-      const varBudget  = TOTAL_CLICKS - fixedTotal;
-      const varSegs    = segs.filter(s => s.fixed === undefined);
-      const lengths    = varSegs.map(s => Math.hypot(s.to.x - s.from.x, s.to.y - s.from.y));
-      const totalLen   = lengths.reduce((a, b) => a + b, 0) || 1;
-
-      let cum = 0, vi = 0;
-      terrain = {
-        mtns,
-        segs: segs.map(s => {
-          if (s.fixed === Infinity) return { ...s, clickStart: cum, clickEnd: Infinity };
-          const c = s.fixed !== undefined
-            ? s.fixed
-            : Math.max(1, Math.round(varBudget * lengths[vi++] / totalLen));
-          const r = { ...s, clickStart: cum, clickEnd: cum + c };
-          cum += c;
-          return r;
-        }),
-      };
+      girlScale = W < 600 ? 0.78 : 1;
+      CHAR_SX   = W < 600 ? 70  : 140;
     }
     rebuild();
     window.addEventListener('resize', rebuild);
 
-    let clicks = 0, walkUntil = 0, summited = new Set(), descended = new Set();
-
-    function getPos() {
-      if (!terrain) return { x: 18, y: GY, angle: 0, type: 'flat' };
-      const seg = terrain.segs.find(s => clicks < s.clickEnd) || terrain.segs[terrain.segs.length - 1];
-      const span = seg.clickEnd - seg.clickStart;
-      const t = span <= 0 || !isFinite(span) ? 0 : Math.min((clicks - seg.clickStart) / span, 1);
-      return {
-        x: seg.from.x + t * (seg.to.x - seg.from.x),
-        y: seg.from.y + t * (seg.to.y - seg.from.y),
-        angle: seg.type === 'victory' ? 0 : seg.angle,
-        type: seg.type, mtn: seg.mtn, descentType: seg.descentType,
-      };
-    }
-
-    function doSplash(x, y) {
-      const r = canvas.getBoundingClientRect();
-      const cx = r.left + x, cy = r.top + y;
-      for (let i = 0; i < 12; i++) setTimeout(() => {
-        const f = document.createElement('span');
-        f.textContent = '👣';
-        const a = Math.random() * Math.PI * 2, d = 35 + Math.random() * 70;
-        f.style.cssText = `position:fixed;left:${cx}px;top:${cy}px;font-size:${11+Math.random()*9}px;pointer-events:none;user-select:none;z-index:9999;--tx:${Math.cos(a)*d}px;--ty:${Math.sin(a)*d-50}px;--rot:${(Math.random()-.5)*400}deg;animation:flower-throw ${0.6+Math.random()*0.4}s ease-out forwards`;
-        document.body.appendChild(f);
-        f.addEventListener('animationend', () => f.remove());
-      }, i * 45);
-    }
-
-    document.addEventListener('click', () => {
-      if (!terrain) return;
-      const last = terrain.segs[terrain.segs.length - 1];
-      if (clicks >= last.clickStart) return;
-      clicks++;
-      walkUntil = Date.now() + 500;
-      const pos = getPos();
-      if (pos.type === 'victory' && pos.mtn && !summited.has(pos.mtn)) {
-        summited.add(pos.mtn);
-        doSplash(pos.x, pos.y);
+    // --- GENERATION ---
+    function genMtns(fromX, count) {
+      let x = fromX;
+      for (let i = 0; i < count; i++) {
+        const mh = 38 + Math.random() * 44;
+        const mw = mh * (0.55 + Math.random() * 0.75);
+        mountains.push({
+          cx: x + mw, mh, mw,
+          text:    SUMMIT_MSGS[Math.floor(Math.random() * SUMMIT_MSGS.length)],
+          descent: DESCENT_TYPES[Math.floor(Math.random() * DESCENT_TYPES.length)],
+        });
+        x += mw * 2 + 90 + Math.random() * 170;
       }
-      terrain.segs.forEach(s => {
-        if (s.type === 'descend' && s.mtn && clicks >= s.clickEnd && !descended.has(s.mtn))
-          descended.add(s.mtn);
-      });
-    });
+    }
+    function genBlocks(a, b) {
+      const s = a.cx + a.mw + 12, e = b.cx - b.mw - 12, z = e - s;
+      if (z < 80 || Math.random() < 0.4) return; // skip ~40% of zones, max 1 block
+      floatBlocks.push({ wx: s + z * (0.35 + Math.random() * 0.3), yOff: 58 + Math.random()*18, hit: false, bumpT: -1 });
+    }
+    function genSheep(a, b) {
+      const s = a.cx + a.mw + 40, e = b.cx - b.mw - 40, z = e - s;
+      if (z < 60 || Math.random() < 0.5) return; // skip ~half the zones
+      sheep.push({ wx: s + z * (0.35 + Math.random() * 0.3) });
+    }
 
-    function drawCloud(x, y) {
+    // Generate exactly 10 mountains then stop
+    genMtns(330, 10);
+    for (let i = 0; i < mountains.length - 1; i++) {
+      genBlocks(mountains[i], mountains[i+1]);
+      genSheep(mountains[i], mountains[i+1]);
+      // thorn flower: only in every 3rd flat zone
+      if (i % 3 === 1) {
+        const a = mountains[i], b = mountains[i+1];
+        const fs = a.cx + a.mw + 55, fe = b.cx - b.mw - 55;
+        if (fe - fs > 50) thornFlowers.push({ wx: fs + Math.random()*(fe-fs) });
+      }
+    }
+    // blocks + one sheep in the starting flat zone
+    floatBlocks.push({ wx: 230, yOff: 62 + Math.random()*14, hit: false, bumpT: -1 });
+    sheep.push({ wx: 200 });
+
+    const last = mountains[mountains.length - 1];
+    endX          = last.cx + last.mw + 220;
+    weatherStartX = mountains[6].cx; // snow starts around mountain 7
+
+    // --- TERRAIN HELPERS ---
+    function getGroundY(wx) {
+      for (const m of mountains) {
+        if (wx >= m.cx - m.mw && wx < m.cx)        return GY - ((wx-(m.cx-m.mw))/m.mw)*m.mh;
+        if (wx >= m.cx        && wx <= m.cx + m.mw) return GY - m.mh + ((wx-m.cx)/m.mw)*m.mh;
+      }
+      return GY;
+    }
+    function getTerrainInfo(wx) {
+      for (const m of mountains) {
+        if (wx >= m.cx - m.mw && wx < m.cx - 2)     return { type:'climb',   mtn:m };
+        if (wx >= m.cx - 2    && wx < m.cx + 5)      return { type:'victory', mtn:m };
+        if (wx >= m.cx + 5    && wx <= m.cx + m.mw)  return { type:'descend', mtn:m };
+      }
+      return { type:'flat', mtn:null };
+    }
+    function getSlopeAngle(wx) {
+      const { type, mtn } = getTerrainInfo(wx);
+      if (type === 'climb')   return Math.atan2(-mtn.mh, mtn.mw);
+      if (type === 'descend' && mtn.descent !== 'parachute') return Math.atan2(mtn.mh, mtn.mw);
+      return 0;
+    }
+
+    // --- CONTROLS ---
+    function triggerJump() {
+      jumpVy = JUMP_VY; grounded = false; walkUntil = Date.now() + 300;
+    }
+    function advanceBy(px) {
+      if (worldX >= endX) return;
+      worldX += px; walkUntil = Date.now() + 400;
+    }
+
+    // --- PARTICLES ---
+    function doSplash(sx, sy) {
+      const r = canvas.getBoundingClientRect();
+      const cx = r.left + sx, cy = r.top + sy;
+      ['⭐','✨','🎉','⭐','✨'].forEach((e, i) => setTimeout(() => {
+        const f = document.createElement('span');
+        f.textContent = e;
+        const a = Math.random()*Math.PI*2, d = 30+Math.random()*65;
+        f.style.cssText = `position:fixed;left:${cx}px;top:${cy}px;font-size:${11+Math.random()*9}px;pointer-events:none;user-select:none;z-index:9999;--tx:${Math.cos(a)*d}px;--ty:${Math.sin(a)*d-50}px;--rot:${(Math.random()-.5)*400}deg;animation:flower-throw ${0.6+Math.random()*0.4}s ease-out forwards`;
+        document.body.appendChild(f); f.addEventListener('animationend', () => f.remove());
+      }, i * 80));
+    }
+    function doFlowerBurst(sx, sy) {
+      const r = canvas.getBoundingClientRect();
+      const cx = r.left + sx, cy = r.top + sy;
+      const emojis = ['🌸','🌼','🌺','🌸','✨'];
+      for (let i = 0; i < 9; i++) setTimeout(() => {
+        const f = document.createElement('span');
+        f.textContent = emojis[i % emojis.length];
+        const a = -Math.PI/2 + (Math.random()-.5)*2.4, d = 20+Math.random()*55;
+        f.style.cssText = `position:fixed;left:${cx}px;top:${cy}px;font-size:${10+Math.random()*8}px;pointer-events:none;user-select:none;z-index:9999;--tx:${Math.cos(a)*d}px;--ty:${Math.sin(a)*d-15}px;--rot:${(Math.random()-.5)*360}deg;animation:flower-throw ${0.45+Math.random()*0.35}s ease-out forwards`;
+        document.body.appendChild(f); f.addEventListener('animationend', () => f.remove());
+      }, i * 22);
+    }
+
+    // --- DRAWING ---
+    function drawCloud(wx, y) {
+      const sx = wx - cameraX;
+      if (sx < -60 || sx > W+60) return;
       ctx.fillStyle = '#d0d0d0';
-      ctx.fillRect(x, y, 22, 5); ctx.fillRect(x+4, y-4, 13, 5); ctx.fillRect(x+7, y-7, 7, 4);
+      ctx.beginPath(); ctx.arc(sx+10, y,    9, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(sx+23, y-7, 13, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(sx+38, y,    9, 0, Math.PI*2); ctx.fill();
+      ctx.fillRect(sx+1, y, 46, 9);
     }
 
     function drawMountain(m) {
+      const sx = m.cx - cameraX;
+      if (sx + m.mw < 0 || sx - m.mw > W) return;
       ctx.fillStyle = C;
       ctx.beginPath();
-      ctx.moveTo(m.cx - m.mw, GY + 1);
-      ctx.lineTo(m.cx,        GY - m.mh);
-      ctx.lineTo(m.cx + m.mw, GY + 1);
+      ctx.moveTo(sx - m.mw, GY + 1); ctx.lineTo(sx, GY - m.mh); ctx.lineTo(sx + m.mw, GY + 1);
       ctx.closePath(); ctx.fill();
       ctx.fillStyle = '#fff';
       ctx.beginPath();
-      ctx.moveTo(m.cx - m.mw * 0.15, GY - m.mh + m.mh * 0.21);
-      ctx.lineTo(m.cx,                GY - m.mh);
-      ctx.lineTo(m.cx + m.mw * 0.15, GY - m.mh + m.mh * 0.21);
+      ctx.moveTo(sx - m.mw*0.15, GY - m.mh + m.mh*0.21);
+      ctx.lineTo(sx,              GY - m.mh);
+      ctx.lineTo(sx + m.mw*0.15, GY - m.mh + m.mh*0.21);
       ctx.closePath(); ctx.fill();
     }
 
-    function drawFlag(x, y) {
+    function drawNatureGround() {
+      // rocky path base
+      ctx.fillStyle = '#7a7a7a';
+      ctx.fillRect(0, GY, W, H - GY);
+      // scattered rocks (scroll with camera)
+      const seed = Math.floor(cameraX / 1);
+      for (let i = 0; i < 28; i++) {
+        const wx = (seed + i) * 47.3 % 20000;
+        const sx = wx - cameraX;
+        if (sx < -20 || sx > W + 20) continue;
+        // deterministic size from wx
+        const rw = 6 + (wx * 0.37) % 14;
+        const rh = 3 + (wx * 0.19) % 5;
+        const shade = (wx * 0.11) % 2 > 1 ? '#999' : '#666';
+        ctx.fillStyle = shade;
+        ctx.beginPath();
+        ctx.ellipse(sx, GY + rh, rw, rh, 0, 0, Math.PI*2);
+        ctx.fill();
+      }
+    }
+
+    function drawDecor(d) {
+      const sx = d.wx - cameraX;
+      if (sx < -10 || sx > W + 10) return;
+      if (d.type === 'grass') {
+        ctx.strokeStyle = '#888'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(sx,   GY); ctx.lineTo(sx-3, GY-7); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(sx,   GY); ctx.lineTo(sx,   GY-9); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(sx,   GY); ctx.lineTo(sx+3, GY-7); ctx.stroke();
+      } else {
+        // small flower: stem + petals
+        ctx.strokeStyle = '#888'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(sx, GY); ctx.lineTo(sx, GY-8); ctx.stroke();
+        ctx.fillStyle = '#bbb';
+        ctx.beginPath(); ctx.arc(sx, GY-10, 3, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#ddd';
+        [0,1,2,3].forEach(k => {
+          const a = k * Math.PI/2;
+          ctx.beginPath(); ctx.arc(sx+Math.cos(a)*4, GY-10+Math.sin(a)*4, 2, 0, Math.PI*2); ctx.fill();
+        });
+      }
+    }
+
+    function drawFinishGate() {
+      const sx = endX - cameraX;
+      if (sx < -60 || sx > W + 60) return;
+      ctx.fillStyle = '#555';
+      ctx.fillRect(sx - 20, GY - 54, 5, 54); // left post
+      ctx.fillRect(sx + 15, GY - 54, 5, 54); // right post
+      // Arch between posts
+      ctx.strokeStyle = '#555'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(sx - 18, GY - 54);
+      ctx.quadraticCurveTo(sx, GY - 82, sx + 18, GY - 54);
+      ctx.stroke();
+      // Crossbar
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(sx - 18, GY - 40); ctx.lineTo(sx + 18, GY - 40); ctx.stroke();
+      // "FINISH" text on banner
+      ctx.fillStyle = '#333'; ctx.font = 'bold 7px ui-monospace, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('FINISH', sx, GY - 68);
+      ctx.textAlign = 'left';
+      // Ribbon strips on posts
+      for (let i = 0; i < 4; i++) {
+        ctx.fillStyle = i % 2 === 0 ? '#888' : '#bbb';
+        ctx.fillRect(sx - 20, GY - 54 + i*13, 5, 13);
+        ctx.fillRect(sx + 15, GY - 54 + i*13, 5, 13);
+      }
+    }
+
+    function drawHappyGirl(ts) {
+      // arms wave alternately using two out-of-phase sine waves
+      const waveL = Math.sin(ts / 180) * 10;
+      const waveR = Math.sin(ts / 180 + Math.PI) * 10;
+      // slight body bob
+      const bob = Math.abs(Math.sin(ts / 260)) * 2;
+      ctx.fillStyle = C; ctx.strokeStyle = C; ctx.lineCap = 'square'; ctx.lineWidth = 1;
+      ctx.fillRect(-11, -26 + bob, 6, 12);
+      ctx.fillRect(-11, -21 + bob, 6,  2);
+      ctx.fillRect( -3, -26 + bob, 9, 15);
+      ctx.fillRect( -6, -13 + bob, 15, 4);
+      ctx.beginPath(); ctx.arc(1,  -31 + bob, 5.5, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(-2, -38 + bob, 4.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillRect(-6, -9 + bob, 5, 9);
+      ctx.fillRect( 1, -9 + bob, 5, 9);
+      // waving arms: shoulder pivot point, tip swings up/down
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(-3, -22 + bob); ctx.lineTo(-14, -32 + bob + waveL); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo( 5, -22 + bob); ctx.lineTo( 16, -32 + bob + waveR); ctx.stroke();
+    }
+
+    function drawThornFlower(wx) {
+      const sx = wx - cameraX;
+      if (sx < -10 || sx > W+10) return;
+      // Stem
+      ctx.strokeStyle = '#777'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(sx, GY); ctx.lineTo(sx, GY-11); ctx.stroke();
+      // Centre
+      ctx.fillStyle = '#666';
+      ctx.beginPath(); ctx.arc(sx, GY-13, 4, 0, Math.PI*2); ctx.fill();
+      // Spikes (8 thorns)
+      ctx.strokeStyle = '#555'; ctx.lineWidth = 1;
+      for (let k = 0; k < 8; k++) {
+        const a = k * Math.PI/4;
+        ctx.beginPath();
+        ctx.moveTo(sx + Math.cos(a)*4, GY-13 + Math.sin(a)*4);
+        ctx.lineTo(sx + Math.cos(a)*9, GY-13 + Math.sin(a)*9);
+        ctx.stroke();
+      }
+      // Small leaf
+      ctx.fillStyle = '#888';
+      ctx.beginPath(); ctx.ellipse(sx+4, GY-7, 4, 2, 0.5, 0, Math.PI*2); ctx.fill();
+    }
+
+    function drawSheep(wx) {
+      const sx = wx - cameraX;
+      if (sx < -40 || sx > W+40) return;
+      // Fluffy body
+      ctx.fillStyle = '#d8d8d8';
+      ctx.beginPath(); ctx.ellipse(sx, GY-7, 11, 7, 0, 0, Math.PI*2); ctx.fill();
+      // Fluffy bumps on top
+      ctx.beginPath(); ctx.arc(sx-5, GY-12, 5, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(sx+1, GY-14, 6, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(sx+7, GY-11, 5, 0, Math.PI*2); ctx.fill();
+      // Head
+      ctx.fillStyle = '#888';
+      ctx.beginPath(); ctx.arc(sx+15, GY-9, 5, 0, Math.PI*2); ctx.fill();
+      // Eye
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(sx+16, GY-11, 2, 2);
+      // Ear
+      ctx.fillStyle = '#999';
+      ctx.fillRect(sx+14, GY-14, 2, 3);
+      // Legs
+      ctx.fillStyle = '#777';
+      ctx.fillRect(sx-5, GY,  2, 6);
+      ctx.fillRect(sx,   GY,  2, 6);
+      ctx.fillRect(sx+7, GY,  2, 6);
+      ctx.fillRect(sx+11,GY,  2, 6);
+    }
+
+    function drawQuestionBlock(b) {
+      const sx = b.wx - cameraX;
+      if (sx < -20 || sx > W+20) return;
+      const S = 16, by = GY - b.yOff;
+      const dt = b.hit ? Date.now() - b.bumpT : 0;
+      const bump  = b.hit && dt < 200 ? Math.sin((dt/200)*Math.PI)*7 : 0;
+      const spent = b.hit && dt > 200;
+      const top = by - bump;
+      ctx.fillStyle = spent ? '#888' : C;
+      ctx.fillRect(sx - S/2, top - S, S, S);
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(sx - S/2 + 2, top - S + 2, S - 4, S - 4);
+      if (!spent) {
+        ctx.fillStyle = C;
+        ctx.font = 'bold 9px ui-monospace, monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('?', sx, top - 4);
+        ctx.textAlign = 'left';
+      } else {
+        ctx.fillStyle = '#aaa';
+        ctx.fillRect(sx - S/2 + 4, top - S + 4, S - 8, S - 8);
+      }
+    }
+
+    function drawFlag(m) {
+      const sx = m.cx - cameraX;
+      if (sx < -20 || sx > W+20) return;
       ctx.fillStyle = C;
-      ctx.fillRect(x - 1, y - 18, 2, 18);
-      ctx.fillRect(x + 1, y - 18, 10, 7);
-      ctx.fillStyle = '#fff'; ctx.fillRect(x + 2, y - 17, 8, 5);
+      ctx.fillRect(sx - 1, GY - m.mh - 18, 2, 18);
+      ctx.fillRect(sx + 1, GY - m.mh - 18, 10, 7);
+      ctx.fillStyle = '#fff'; ctx.fillRect(sx + 2, GY - m.mh - 17, 8, 5);
     }
 
     function drawGirlShape(swing, bob, type, ts) {
       ctx.fillStyle = C; ctx.strokeStyle = C; ctx.lineCap = 'square';
+      // Backpack
       ctx.fillRect(-11, -26 + bob, 6, 12);
       ctx.fillRect(-11, -21 + bob, 6,  2);
+      // Body
       ctx.fillRect( -3, -26 + bob, 9, 15);
+      // Skirt flare (reads immediately as female)
+      ctx.fillRect( -6, -13 + bob, 15, 4);
+      // Head
       ctx.beginPath(); ctx.arc(1,  -31 + bob, 5.5, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.arc(-3, -35 + bob, 3,   0, Math.PI * 2); ctx.fill();
+      // Hair bun
+      ctx.beginPath(); ctx.arc(-2, -38 + bob, 4.5, 0, Math.PI * 2); ctx.fill();
       ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.moveTo(-1, -11+bob); ctx.lineTo(-2-swing, 0); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo( 4, -11+bob); ctx.lineTo( 5+swing, 0); ctx.stroke();
-      ctx.fillRect(-5-swing, -2, 7, 3); ctx.fillRect(3+swing, -2, 7, 3);
+      // Legs (from skirt hem)
+      ctx.beginPath(); ctx.moveTo(-1, -9+bob); ctx.lineTo(-2-swing, 0); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo( 4, -9+bob); ctx.lineTo( 5+swing, 0); ctx.stroke();
+      // Blockier shoes
+      ctx.fillRect(-6-swing, -2, 9, 4); ctx.fillRect(2+swing, -2, 9, 4);
       ctx.lineWidth = 2;
       if (type === 'victory') {
         ctx.beginPath(); ctx.moveTo(-2,-22+bob); ctx.lineTo(-10,-33+bob); ctx.stroke();
@@ -677,7 +907,7 @@
       // Body
       ctx.fillRect(-3, -26+float, 9, 15);
       ctx.beginPath(); ctx.arc(1,  -31+float, 5.5, 0, Math.PI*2); ctx.fill();
-      ctx.beginPath(); ctx.arc(-3, -35+float, 3,   0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(-2, -38+float, 4.5, 0, Math.PI*2); ctx.fill();
       // Arms spread
       ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(-2, -22+float); ctx.lineTo(-13, -26+float); ctx.stroke();
@@ -696,7 +926,7 @@
       // Crouched body
       ctx.fillRect(-3, -22+bob, 9, 13);
       ctx.beginPath(); ctx.arc(1,  -27+bob, 5.5, 0, Math.PI*2); ctx.fill();
-      ctx.beginPath(); ctx.arc(-3, -31+bob, 3,   0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(-2, -34+bob, 4.5, 0, Math.PI*2); ctx.fill();
       // Bent legs
       ctx.lineWidth = 3;
       ctx.beginPath(); ctx.moveTo(-2, -9+bob); ctx.lineTo(-4, 0); ctx.stroke();
@@ -712,56 +942,166 @@
       ctx.beginPath(); ctx.moveTo( 4, -18+bob); ctx.lineTo( 14, -11+bob); ctx.stroke();
     }
 
-    const clouds  = [0.10, 0.42, 0.78].map(r => ({ xr: r, y: 8 + Math.random() * 14 }));
-    const pebbles = Array.from({length: 30}, (_, i) => ({ xr: (i*0.034+0.005)%1, w: 2+(i%3) }));
-
+    // --- MAIN LOOP ---
+    let lastTs = 0;
     function draw(ts) {
-      if (!W || !terrain) { requestAnimationFrame(draw); return; }
+      if (!W) { requestAnimationFrame(draw); return; }
+      const dt = Math.min(ts - lastTs, 50); lastTs = ts;
+
+      // Advance from held ArrowRight (stop at end)
+      if (keys['ArrowRight'] && worldX < endX) { worldX += 150*dt/1000; walkUntil = Date.now()+200; }
+
+      // Jump physics
+      if (!grounded) {
+        jumpVy += GRAV; jumpY += jumpVy;
+        // Block hit (going up)
+        if (jumpVy < 0) {
+          const gy = getGroundY(worldX);
+          const charTop = gy + jumpY - 43;
+          floatBlocks.forEach(b => {
+            if (b.hit || Math.abs(worldX - b.wx) > 14) return;
+            const blockBot = GY - b.yOff;
+            if (charTop <= blockBot && charTop > blockBot - 18) {
+              b.hit = true; b.bumpT = Date.now(); jumpVy = 2;
+              doFlowerBurst(b.wx - cameraX, blockBot);
+            }
+          });
+        }
+        if (jumpY >= 0) { jumpY = 0; jumpVy = 0; grounded = true; }
+      }
+
+      const groundY = getGroundY(worldX);
+      const { type, mtn } = getTerrainInfo(worldX);
+
+      // Summit
+      if (type === 'victory' && mtn && !summited.has(mtn)) {
+        summited.add(mtn);
+        doSplash(worldX - cameraX, groundY - mtn.mh);
+        summitMsg = { text: mtn.text, wx: mtn.cx, mh: mtn.mh, until: Date.now()+2800 };
+      }
+
+      // Sheep collision → baaaw
+      sheep.forEach(s => {
+        if (!baaed.has(s) && Math.abs(worldX - s.wx) < 25) {
+          baaed.add(s);
+          baawMsgs.push({ wx: s.wx, until: Date.now() + 1800 });
+        }
+      });
+
+      // Thorn collision → ouch
+      if (!gameEnded) thornFlowers.forEach(t => {
+        if (!stung.has(t) && Math.abs(worldX - t.wx) < 14) {
+          stung.add(t);
+          ouchMsg = { wx: worldX, until: Date.now() + 1200 };
+        }
+      });
+
+      // End detection
+      if (worldX >= endX && !gameEnded) { gameEnded = true; endTime = Date.now(); }
+
+      // Camera: hard follow
+      cameraX = Math.max(0, worldX - CHAR_SX);
+
+      // Snow: spawn flakes when past weatherStartX
+      const snowProgress = Math.max(0, Math.min(1, (worldX - weatherStartX) / 800));
+      if (snowProgress > 0 && Math.random() < 0.55 * snowProgress)
+        snowflakes.push({ x: Math.random() * W, y: -4, vy: 0.8+Math.random()*1.2, vx: (Math.random()-.5)*0.6, r: 1.5+Math.random()*1.5 });
+      for (let i = snowflakes.length-1; i >= 0; i--) {
+        snowflakes[i].y += snowflakes[i].vy; snowflakes[i].x += snowflakes[i].vx;
+        if (snowflakes[i].y > H) snowflakes.splice(i,1);
+      }
+
+      // --- RENDER ---
       ctx.clearRect(0, 0, W, H);
-
-      const pos     = getPos();
-      const walking = Date.now() < walkUntil;
-      const swing   = walking && pos.type !== 'victory' ? Math.sin(ts/130)*5 : 0;
-      const bob     = walking && pos.type === 'flat'    ? Math.abs(Math.sin(ts/130))*1.5 : 0;
-
       ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
-      clouds.forEach(c => drawCloud(c.xr * W, c.y));
-      terrain.mtns.forEach(m => drawMountain(m));
 
-      ctx.fillStyle = C; ctx.fillRect(0, GY, W, 2);
-      ctx.fillStyle = '#aaa';
-      pebbles.forEach(p => ctx.fillRect(p.xr * W, GY + 4, p.w, 1));
+      clouds.forEach(c => drawCloud(c.wx, c.y));
+      mountains.forEach(m => drawMountain(m));
+      mountains.forEach(m => { if (worldX > m.cx + m.mw) drawFlag(m); });
+      floatBlocks.forEach(b => drawQuestionBlock(b));
+      drawNatureGround();
+      decor.forEach(d => drawDecor(d));
+      thornFlowers.forEach(t => drawThornFlower(t.wx));
+      sheep.forEach(s => drawSheep(s.wx));
+      drawFinishGate();
 
-      terrain.mtns.forEach(m => { if (descended.has(m)) drawFlag(m.cx, GY - m.mh); });
+      // Snow overlay
+      if (snowProgress > 0) {
+        ctx.fillStyle = `rgba(220,230,255,${0.75*snowProgress})`;
+        snowflakes.forEach(s => { ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI*2); ctx.fill(); });
+      }
 
+      // Character
+      const walking = Date.now() < walkUntil || keys['ArrowRight'];
+      const swing = (walking && type !== 'victory') ? Math.sin(ts/130)*5 : 0;
+      const bob   = (walking && type === 'flat' && grounded) ? Math.abs(Math.sin(ts/130))*1.5 : 0;
+      const angle = grounded ? getSlopeAngle(worldX) : 0;
       ctx.save();
-      ctx.translate(pos.x, pos.y);
-      ctx.rotate(pos.angle);
+      ctx.translate(worldX - cameraX, groundY + jumpY);
+      ctx.rotate(angle);
       ctx.scale(girlScale, girlScale);
-      if (pos.type === 'descend' && pos.descentType === 'parachute') drawParachute(ts);
-      else if (pos.type === 'descend' && pos.descentType === 'ski')   drawSkiGirl(bob);
-      else drawGirlShape(swing, bob, pos.type, ts);
+      if (gameEnded) drawHappyGirl(ts);
+      else if (type === 'descend' && mtn?.descent === 'parachute' && grounded) drawParachute(ts);
+      else if (type === 'descend' && mtn?.descent === 'ski' && grounded)  drawSkiGirl(bob);
+      else drawGirlShape(swing, bob, grounded ? type : 'flat', ts);
       ctx.restore();
 
-      if (pos.type === 'victory' && pos.mtn) {
+      // Summit message
+      if (summitMsg && Date.now() < summitMsg.until) {
+        const sx = summitMsg.wx - cameraX;
+        ctx.save();
+        ctx.globalAlpha = Math.min(1, (summitMsg.until - Date.now()) / 500);
         ctx.fillStyle = C; ctx.font = 'bold 11px ui-monospace, monospace';
         ctx.textAlign = 'center';
-        ctx.fillText(pos.mtn.text, pos.mtn.cx, GY - pos.mtn.mh - 48);
+        ctx.fillText(summitMsg.text, sx, GY - summitMsg.mh - 14);
         ctx.textAlign = 'left';
+        ctx.restore();
       }
-      if (pos.type === 'end') {
-        const isMob = W < 600;
-        ctx.fillStyle = C; ctx.font = (isMob ? '8px' : '11px') + ' ui-monospace, monospace';
+
+      // Baaw & ouch popups
+      const nowMs = Date.now();
+      baawMsgs = baawMsgs.filter(m => nowMs < m.until);
+      baawMsgs.forEach(m => {
+        const age = nowMs - (m.until - 1800);
+        const fade = Math.min(1, (m.until - nowMs) / 400);
+        const rise = age / 1800 * 14;
+        ctx.save(); ctx.globalAlpha = fade;
+        ctx.fillStyle = C; ctx.font = 'bold 11px ui-monospace, monospace';
         ctx.textAlign = 'center';
-        const ex = pos.x - (isMob ? 50 : 120);
-        ctx.fillText('Every mountain top', ex, GY-58);
-        ctx.fillText('is within reach,', ex, GY-44);
-        ctx.fillText('if you just keep climbing ✨', ex, GY-30);
-        ctx.textAlign = 'left';
+        ctx.fillText('baaaw! 🐑', m.wx - cameraX, GY - 34 - rise);
+        ctx.restore();
+      });
+      if (ouchMsg && nowMs < ouchMsg.until) {
+        const age = nowMs - (ouchMsg.until - 1200);
+        const fade = Math.min(1, (ouchMsg.until - nowMs) / 400);
+        const rise = age / 1200 * 12;
+        ctx.save(); ctx.globalAlpha = fade;
+        ctx.fillStyle = '#555'; ctx.font = 'bold 11px ui-monospace, monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('ouch! 🌵', ouchMsg.wx - cameraX, groundY + jumpY - 52 - rise);
+        ctx.restore();
       }
-      if (clicks === 0) {
+
+      // End quote (fades in when game finishes)
+      if (gameEnded) {
+        const fade = Math.min(1, (Date.now() - endTime) / 900);
+        const charSX = worldX - cameraX;
+        ctx.save();
+        ctx.globalAlpha = fade;
+        ctx.fillStyle = C;
+        const fs = W < 600 ? '9px' : '11px';
+        ctx.font = fs + ' ui-monospace, monospace';
+        ctx.textAlign = 'center';
+        const qx = Math.max(charSX - 110, W/2 - 140);
+        ctx.fillText('Every mountain top is within reach,', qx, GY - 62);
+        ctx.fillText('if you just keep climbing ✨', qx, GY - 46);
+        ctx.restore();
+      }
+
+      // Hint
+      if (worldX < 85) {
         ctx.fillStyle = '#aaa'; ctx.font = '11px ui-monospace, monospace';
-        ctx.textAlign = 'left'; ctx.fillText('← click anywhere to hike', W < 600 ? 8 : 80, GY - 55);
+        ctx.fillText('→ or click to walk  ·  space to jump', 10, GY - 55);
       }
 
       requestAnimationFrame(draw);
